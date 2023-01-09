@@ -1,7 +1,9 @@
 package schema
 
 import (
+	"entgo.io/contrib/entgql"
 	"entgo.io/ent"
+	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -23,5 +25,12 @@ func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("liked_tweets", Tweet.Type).
 			Through("likes", Like.Type),
+	}
+}
+
+func (User) Annotations() []schema.Annotation {
+	return []schema.Annotation{
+		entgql.QueryField(),
+		entgql.RelayConnection(),
 	}
 }
