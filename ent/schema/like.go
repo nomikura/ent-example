@@ -1,10 +1,6 @@
 package schema
 
 import (
-	"context"
-	gen "entdemo/ent"
-	"entdemo/ent/hook"
-	"fmt"
 	"time"
 
 	"entgo.io/ent"
@@ -43,18 +39,5 @@ func (Like) Edges() []ent.Edge {
 			Unique().
 			Required().
 			Field("tweet_id"),
-	}
-}
-
-func (Like) Hooks() []ent.Hook {
-	return []ent.Hook{
-		func(next ent.Mutator) ent.Mutator {
-			return hook.LikeFunc(func(ctx context.Context, m *gen.LikeMutation) (ent.Value, error) {
-				// "hello" will not be output
-				fmt.Println("hello")
-
-				return next.Mutate(ctx, m)
-			})
-		},
 	}
 }

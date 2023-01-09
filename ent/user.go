@@ -31,6 +31,11 @@ type UserEdges struct {
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [2]bool
+	// totalCount holds the count of the edges above.
+	totalCount [1]map[string]int
+
+	namedLikedTweets map[string][]*Tweet
+	namedLikes       map[string][]*Like
 }
 
 // LikedTweetsOrErr returns the LikedTweets value or an error if the edge
@@ -129,6 +134,54 @@ func (u *User) String() string {
 	builder.WriteString(u.Name)
 	builder.WriteByte(')')
 	return builder.String()
+}
+
+// NamedLikedTweets returns the LikedTweets named value or an error if the edge was not
+// loaded in eager-loading with this name.
+func (u *User) NamedLikedTweets(name string) ([]*Tweet, error) {
+	if u.Edges.namedLikedTweets == nil {
+		return nil, &NotLoadedError{edge: name}
+	}
+	nodes, ok := u.Edges.namedLikedTweets[name]
+	if !ok {
+		return nil, &NotLoadedError{edge: name}
+	}
+	return nodes, nil
+}
+
+func (u *User) appendNamedLikedTweets(name string, edges ...*Tweet) {
+	if u.Edges.namedLikedTweets == nil {
+		u.Edges.namedLikedTweets = make(map[string][]*Tweet)
+	}
+	if len(edges) == 0 {
+		u.Edges.namedLikedTweets[name] = []*Tweet{}
+	} else {
+		u.Edges.namedLikedTweets[name] = append(u.Edges.namedLikedTweets[name], edges...)
+	}
+}
+
+// NamedLikes returns the Likes named value or an error if the edge was not
+// loaded in eager-loading with this name.
+func (u *User) NamedLikes(name string) ([]*Like, error) {
+	if u.Edges.namedLikes == nil {
+		return nil, &NotLoadedError{edge: name}
+	}
+	nodes, ok := u.Edges.namedLikes[name]
+	if !ok {
+		return nil, &NotLoadedError{edge: name}
+	}
+	return nodes, nil
+}
+
+func (u *User) appendNamedLikes(name string, edges ...*Like) {
+	if u.Edges.namedLikes == nil {
+		u.Edges.namedLikes = make(map[string][]*Like)
+	}
+	if len(edges) == 0 {
+		u.Edges.namedLikes[name] = []*Like{}
+	} else {
+		u.Edges.namedLikes[name] = append(u.Edges.namedLikes[name], edges...)
+	}
 }
 
 // Users is a parsable slice of User.

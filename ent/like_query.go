@@ -27,6 +27,8 @@ type LikeQuery struct {
 	predicates []predicate.Like
 	withUser   *UserQuery
 	withTweet  *TweetQuery
+	modifiers  []func(*sql.Selector)
+	loadTotal  []func(context.Context, []*Like) error
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -350,6 +352,9 @@ func (lq *LikeQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Like, e
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
+	if len(lq.modifiers) > 0 {
+		_spec.Modifiers = lq.modifiers
+	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -368,6 +373,11 @@ func (lq *LikeQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Like, e
 	if query := lq.withTweet; query != nil {
 		if err := lq.loadTweet(ctx, query, nodes, nil,
 			func(n *Like, e *Tweet) { n.Edges.Tweet = e }); err != nil {
+			return nil, err
+		}
+	}
+	for i := range lq.loadTotal {
+		if err := lq.loadTotal[i](ctx, nodes); err != nil {
 			return nil, err
 		}
 	}
@@ -429,6 +439,9 @@ func (lq *LikeQuery) loadTweet(ctx context.Context, query *TweetQuery, nodes []*
 
 func (lq *LikeQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := lq.querySpec()
+	if len(lq.modifiers) > 0 {
+		_spec.Modifiers = lq.modifiers
+	}
 	_spec.Unique = false
 	_spec.Node.Columns = nil
 	return sqlgraph.CountNodes(ctx, lq.driver, _spec)

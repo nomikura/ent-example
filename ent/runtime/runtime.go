@@ -2,32 +2,7 @@
 
 package runtime
 
-import (
-	"entdemo/ent/like"
-	"entdemo/ent/schema"
-	"entdemo/ent/user"
-	"time"
-)
-
-// The init function reads all schema descriptors with runtime code
-// (default values, validators, hooks and policies) and stitches it
-// to their package variables.
-func init() {
-	likeHooks := schema.Like{}.Hooks()
-	like.Hooks[0] = likeHooks[0]
-	likeFields := schema.Like{}.Fields()
-	_ = likeFields
-	// likeDescLikedAt is the schema descriptor for liked_at field.
-	likeDescLikedAt := likeFields[0].Descriptor()
-	// like.DefaultLikedAt holds the default value on creation for the liked_at field.
-	like.DefaultLikedAt = likeDescLikedAt.Default.(func() time.Time)
-	userFields := schema.User{}.Fields()
-	_ = userFields
-	// userDescName is the schema descriptor for name field.
-	userDescName := userFields[0].Descriptor()
-	// user.DefaultName holds the default value on creation for the name field.
-	user.DefaultName = userDescName.Default.(string)
-}
+// The schema-stitching logic is generated in entdemo/ent/runtime.go
 
 const (
 	Version = "v0.11.5-0.20221226145649-c868f4a174d0"           // Version of ent codegen.

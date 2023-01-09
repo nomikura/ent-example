@@ -1,0 +1,14 @@
+schema:
+  - ./*.graphql
+
+resolver:
+  layout: follow-schema
+  dir: .
+
+autobind:
+  - entdemo/ent
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.IntID

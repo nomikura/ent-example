@@ -31,6 +31,11 @@ type TweetEdges struct {
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [2]bool
+	// totalCount holds the count of the edges above.
+	totalCount [1]map[string]int
+
+	namedLikedUsers map[string][]*User
+	namedLikes      map[string][]*Like
 }
 
 // LikedUsersOrErr returns the LikedUsers value or an error if the edge
@@ -129,6 +134,54 @@ func (t *Tweet) String() string {
 	builder.WriteString(t.Text)
 	builder.WriteByte(')')
 	return builder.String()
+}
+
+// NamedLikedUsers returns the LikedUsers named value or an error if the edge was not
+// loaded in eager-loading with this name.
+func (t *Tweet) NamedLikedUsers(name string) ([]*User, error) {
+	if t.Edges.namedLikedUsers == nil {
+		return nil, &NotLoadedError{edge: name}
+	}
+	nodes, ok := t.Edges.namedLikedUsers[name]
+	if !ok {
+		return nil, &NotLoadedError{edge: name}
+	}
+	return nodes, nil
+}
+
+func (t *Tweet) appendNamedLikedUsers(name string, edges ...*User) {
+	if t.Edges.namedLikedUsers == nil {
+		t.Edges.namedLikedUsers = make(map[string][]*User)
+	}
+	if len(edges) == 0 {
+		t.Edges.namedLikedUsers[name] = []*User{}
+	} else {
+		t.Edges.namedLikedUsers[name] = append(t.Edges.namedLikedUsers[name], edges...)
+	}
+}
+
+// NamedLikes returns the Likes named value or an error if the edge was not
+// loaded in eager-loading with this name.
+func (t *Tweet) NamedLikes(name string) ([]*Like, error) {
+	if t.Edges.namedLikes == nil {
+		return nil, &NotLoadedError{edge: name}
+	}
+	nodes, ok := t.Edges.namedLikes[name]
+	if !ok {
+		return nil, &NotLoadedError{edge: name}
+	}
+	return nodes, nil
+}
+
+func (t *Tweet) appendNamedLikes(name string, edges ...*Like) {
+	if t.Edges.namedLikes == nil {
+		t.Edges.namedLikes = make(map[string][]*Like)
+	}
+	if len(edges) == 0 {
+		t.Edges.namedLikes[name] = []*Like{}
+	} else {
+		t.Edges.namedLikes[name] = append(t.Edges.namedLikes[name], edges...)
+	}
 }
 
 // Tweets is a parsable slice of Tweet.

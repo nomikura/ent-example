@@ -30,6 +30,8 @@ type Client struct {
 	Tweet *TweetClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// additional fields for node api
+	tables tables
 }
 
 // NewClient creates a new client configured with the given options.
@@ -236,8 +238,7 @@ func (c *LikeClient) QueryTweet(l *Like) *TweetQuery {
 
 // Hooks returns the client hooks.
 func (c *LikeClient) Hooks() []Hook {
-	hooks := c.hooks.Like
-	return append(hooks[:len(hooks):len(hooks)], like.Hooks[:]...)
+	return c.hooks.Like
 }
 
 // Interceptors returns the client interceptors.

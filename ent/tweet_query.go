@@ -20,15 +20,19 @@ import (
 // TweetQuery is the builder for querying Tweet entities.
 type TweetQuery struct {
 	config
-	limit          *int
-	offset         *int
-	unique         *bool
-	order          []OrderFunc
-	fields         []string
-	inters         []Interceptor
-	predicates     []predicate.Tweet
-	withLikedUsers *UserQuery
-	withLikes      *LikeQuery
+	limit               *int
+	offset              *int
+	unique              *bool
+	order               []OrderFunc
+	fields              []string
+	inters              []Interceptor
+	predicates          []predicate.Tweet
+	withLikedUsers      *UserQuery
+	withLikes           *LikeQuery
+	modifiers           []func(*sql.Selector)
+	loadTotal           []func(context.Context, []*Tweet) error
+	withNamedLikedUsers map[string]*UserQuery
+	withNamedLikes      map[string]*LikeQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -422,6 +426,9 @@ func (tq *TweetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Tweet,
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
+	if len(tq.modifiers) > 0 {
+		_spec.Modifiers = tq.modifiers
+	}
 	for i := range hooks {
 		hooks[i](ctx, _spec)
 	}
@@ -442,6 +449,25 @@ func (tq *TweetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Tweet,
 		if err := tq.loadLikes(ctx, query, nodes,
 			func(n *Tweet) { n.Edges.Likes = []*Like{} },
 			func(n *Tweet, e *Like) { n.Edges.Likes = append(n.Edges.Likes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	for name, query := range tq.withNamedLikedUsers {
+		if err := tq.loadLikedUsers(ctx, query, nodes,
+			func(n *Tweet) { n.appendNamedLikedUsers(name) },
+			func(n *Tweet, e *User) { n.appendNamedLikedUsers(name, e) }); err != nil {
+			return nil, err
+		}
+	}
+	for name, query := range tq.withNamedLikes {
+		if err := tq.loadLikes(ctx, query, nodes,
+			func(n *Tweet) { n.appendNamedLikes(name) },
+			func(n *Tweet, e *Like) { n.appendNamedLikes(name, e) }); err != nil {
+			return nil, err
+		}
+	}
+	for i := range tq.loadTotal {
+		if err := tq.loadTotal[i](ctx, nodes); err != nil {
 			return nil, err
 		}
 	}
@@ -536,6 +562,9 @@ func (tq *TweetQuery) loadLikes(ctx context.Context, query *LikeQuery, nodes []*
 
 func (tq *TweetQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := tq.querySpec()
+	if len(tq.modifiers) > 0 {
+		_spec.Modifiers = tq.modifiers
+	}
 	_spec.Node.Columns = tq.fields
 	if len(tq.fields) > 0 {
 		_spec.Unique = tq.unique != nil && *tq.unique
@@ -621,6 +650,34 @@ func (tq *TweetQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector.Limit(*limit)
 	}
 	return selector
+}
+
+// WithNamedLikedUsers tells the query-builder to eager-load the nodes that are connected to the "liked_users"
+// edge with the given name. The optional arguments are used to configure the query builder of the edge.
+func (tq *TweetQuery) WithNamedLikedUsers(name string, opts ...func(*UserQuery)) *TweetQuery {
+	query := (&UserClient{config: tq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	if tq.withNamedLikedUsers == nil {
+		tq.withNamedLikedUsers = make(map[string]*UserQuery)
+	}
+	tq.withNamedLikedUsers[name] = query
+	return tq
+}
+
+// WithNamedLikes tells the query-builder to eager-load the nodes that are connected to the "likes"
+// edge with the given name. The optional arguments are used to configure the query builder of the edge.
+func (tq *TweetQuery) WithNamedLikes(name string, opts ...func(*LikeQuery)) *TweetQuery {
+	query := (&LikeClient{config: tq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	if tq.withNamedLikes == nil {
+		tq.withNamedLikes = make(map[string]*LikeQuery)
+	}
+	tq.withNamedLikes[name] = query
+	return tq
 }
 
 // TweetGroupBy is the group-by builder for Tweet entities.

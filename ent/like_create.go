@@ -65,9 +65,7 @@ func (lc *LikeCreate) Mutation() *LikeMutation {
 
 // Save creates the Like in the database.
 func (lc *LikeCreate) Save(ctx context.Context) (*Like, error) {
-	if err := lc.defaults(); err != nil {
-		return nil, err
-	}
+	lc.defaults()
 	return withHooks[*Like, LikeMutation](ctx, lc.sqlSave, lc.mutation, lc.hooks)
 }
 
@@ -94,15 +92,11 @@ func (lc *LikeCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (lc *LikeCreate) defaults() error {
+func (lc *LikeCreate) defaults() {
 	if _, ok := lc.mutation.LikedAt(); !ok {
-		if like.DefaultLikedAt == nil {
-			return fmt.Errorf("ent: uninitialized like.DefaultLikedAt (forgotten import ent/runtime?)")
-		}
 		v := like.DefaultLikedAt()
 		lc.mutation.SetLikedAt(v)
 	}
-	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.
