@@ -18,11 +18,8 @@ import (
 // LikeQuery is the builder for querying Like entities.
 type LikeQuery struct {
 	config
-	limit      *int
-	offset     *int
-	unique     *bool
-	order      []OrderFunc
-	fields     []string
+	ctx        *QueryContext
+	order      []like.OrderOption
 	inters     []Interceptor
 	predicates []predicate.Like
 	withUser   *UserQuery
@@ -42,25 +39,25 @@ func (lq *LikeQuery) Where(ps ...predicate.Like) *LikeQuery {
 
 // Limit the number of records to be returned by this query.
 func (lq *LikeQuery) Limit(limit int) *LikeQuery {
-	lq.limit = &limit
+	lq.ctx.Limit = &limit
 	return lq
 }
 
 // Offset to start from.
 func (lq *LikeQuery) Offset(offset int) *LikeQuery {
-	lq.offset = &offset
+	lq.ctx.Offset = &offset
 	return lq
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
 func (lq *LikeQuery) Unique(unique bool) *LikeQuery {
-	lq.unique = &unique
+	lq.ctx.Unique = &unique
 	return lq
 }
 
 // Order specifies how the records should be ordered.
-func (lq *LikeQuery) Order(o ...OrderFunc) *LikeQuery {
+func (lq *LikeQuery) Order(o ...like.OrderOption) *LikeQuery {
 	lq.order = append(lq.order, o...)
 	return lq
 }
@@ -112,7 +109,7 @@ func (lq *LikeQuery) QueryTweet() *TweetQuery {
 // First returns the first Like entity from the query.
 // Returns a *NotFoundError when no Like was found.
 func (lq *LikeQuery) First(ctx context.Context) (*Like, error) {
-	nodes, err := lq.Limit(1).All(newQueryContext(ctx, TypeLike, "First"))
+	nodes, err := lq.Limit(1).All(setContextOp(ctx, lq.ctx, "First"))
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +132,7 @@ func (lq *LikeQuery) FirstX(ctx context.Context) *Like {
 // Returns a *NotSingularError when more than one Like entity is found.
 // Returns a *NotFoundError when no Like entities are found.
 func (lq *LikeQuery) Only(ctx context.Context) (*Like, error) {
-	nodes, err := lq.Limit(2).All(newQueryContext(ctx, TypeLike, "Only"))
+	nodes, err := lq.Limit(2).All(setContextOp(ctx, lq.ctx, "Only"))
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +157,7 @@ func (lq *LikeQuery) OnlyX(ctx context.Context) *Like {
 
 // All executes the query and returns a list of Likes.
 func (lq *LikeQuery) All(ctx context.Context) ([]*Like, error) {
-	ctx = newQueryContext(ctx, TypeLike, "All")
+	ctx = setContextOp(ctx, lq.ctx, "All")
 	if err := lq.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
@@ -179,7 +176,7 @@ func (lq *LikeQuery) AllX(ctx context.Context) []*Like {
 
 // Count returns the count of the given query.
 func (lq *LikeQuery) Count(ctx context.Context) (int, error) {
-	ctx = newQueryContext(ctx, TypeLike, "Count")
+	ctx = setContextOp(ctx, lq.ctx, "Count")
 	if err := lq.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
@@ -197,7 +194,7 @@ func (lq *LikeQuery) CountX(ctx context.Context) int {
 
 // Exist returns true if the query has elements in the graph.
 func (lq *LikeQuery) Exist(ctx context.Context) (bool, error) {
-	ctx = newQueryContext(ctx, TypeLike, "Exist")
+	ctx = setContextOp(ctx, lq.ctx, "Exist")
 	switch _, err := lq.First(ctx); {
 	case IsNotFound(err):
 		return false, nil
@@ -225,16 +222,15 @@ func (lq *LikeQuery) Clone() *LikeQuery {
 	}
 	return &LikeQuery{
 		config:     lq.config,
-		limit:      lq.limit,
-		offset:     lq.offset,
-		order:      append([]OrderFunc{}, lq.order...),
+		ctx:        lq.ctx.Clone(),
+		order:      append([]like.OrderOption{}, lq.order...),
+		inters:     append([]Interceptor{}, lq.inters...),
 		predicates: append([]predicate.Like{}, lq.predicates...),
 		withUser:   lq.withUser.Clone(),
 		withTweet:  lq.withTweet.Clone(),
 		// clone intermediate query.
-		sql:    lq.sql.Clone(),
-		path:   lq.path,
-		unique: lq.unique,
+		sql:  lq.sql.Clone(),
+		path: lq.path,
 	}
 }
 
@@ -275,9 +271,9 @@ func (lq *LikeQuery) WithTweet(opts ...func(*TweetQuery)) *LikeQuery {
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
 func (lq *LikeQuery) GroupBy(field string, fields ...string) *LikeGroupBy {
-	lq.fields = append([]string{field}, fields...)
+	lq.ctx.Fields = append([]string{field}, fields...)
 	grbuild := &LikeGroupBy{build: lq}
-	grbuild.flds = &lq.fields
+	grbuild.flds = &lq.ctx.Fields
 	grbuild.label = like.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
@@ -296,10 +292,10 @@ func (lq *LikeQuery) GroupBy(field string, fields ...string) *LikeGroupBy {
 //		Select(like.FieldLikedAt).
 //		Scan(ctx, &v)
 func (lq *LikeQuery) Select(fields ...string) *LikeSelect {
-	lq.fields = append(lq.fields, fields...)
+	lq.ctx.Fields = append(lq.ctx.Fields, fields...)
 	sbuild := &LikeSelect{LikeQuery: lq}
 	sbuild.label = like.Label
-	sbuild.flds, sbuild.scan = &lq.fields, sbuild.Scan
+	sbuild.flds, sbuild.scan = &lq.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
@@ -319,7 +315,7 @@ func (lq *LikeQuery) prepareQuery(ctx context.Context) error {
 			}
 		}
 	}
-	for _, f := range lq.fields {
+	for _, f := range lq.ctx.Fields {
 		if !like.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
@@ -394,6 +390,9 @@ func (lq *LikeQuery) loadUser(ctx context.Context, query *UserQuery, nodes []*Li
 		}
 		nodeids[fk] = append(nodeids[fk], nodes[i])
 	}
+	if len(ids) == 0 {
+		return nil
+	}
 	query.Where(user.IDIn(ids...))
 	neighbors, err := query.All(ctx)
 	if err != nil {
@@ -419,6 +418,9 @@ func (lq *LikeQuery) loadTweet(ctx context.Context, query *TweetQuery, nodes []*
 			ids = append(ids, fk)
 		}
 		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
 	}
 	query.Where(tweet.IDIn(ids...))
 	neighbors, err := query.All(ctx)
@@ -448,21 +450,23 @@ func (lq *LikeQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (lq *LikeQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := &sqlgraph.QuerySpec{
-		Node: &sqlgraph.NodeSpec{
-			Table:   like.Table,
-			Columns: like.Columns,
-		},
-		From:   lq.sql,
-		Unique: true,
-	}
-	if unique := lq.unique; unique != nil {
+	_spec := sqlgraph.NewQuerySpec(like.Table, like.Columns, nil)
+	_spec.From = lq.sql
+	if unique := lq.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
+	} else if lq.path != nil {
+		_spec.Unique = true
 	}
-	if fields := lq.fields; len(fields) > 0 {
+	if fields := lq.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
 		for i := range fields {
 			_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
+		}
+		if lq.withUser != nil {
+			_spec.Node.AddColumnOnce(like.FieldUserID)
+		}
+		if lq.withTweet != nil {
+			_spec.Node.AddColumnOnce(like.FieldTweetID)
 		}
 	}
 	if ps := lq.predicates; len(ps) > 0 {
@@ -472,10 +476,10 @@ func (lq *LikeQuery) querySpec() *sqlgraph.QuerySpec {
 			}
 		}
 	}
-	if limit := lq.limit; limit != nil {
+	if limit := lq.ctx.Limit; limit != nil {
 		_spec.Limit = *limit
 	}
-	if offset := lq.offset; offset != nil {
+	if offset := lq.ctx.Offset; offset != nil {
 		_spec.Offset = *offset
 	}
 	if ps := lq.order; len(ps) > 0 {
@@ -491,7 +495,7 @@ func (lq *LikeQuery) querySpec() *sqlgraph.QuerySpec {
 func (lq *LikeQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(lq.driver.Dialect())
 	t1 := builder.Table(like.Table)
-	columns := lq.fields
+	columns := lq.ctx.Fields
 	if len(columns) == 0 {
 		columns = like.Columns
 	}
@@ -500,7 +504,7 @@ func (lq *LikeQuery) sqlQuery(ctx context.Context) *sql.Selector {
 		selector = lq.sql
 		selector.Select(selector.Columns(columns...)...)
 	}
-	if lq.unique != nil && *lq.unique {
+	if lq.ctx.Unique != nil && *lq.ctx.Unique {
 		selector.Distinct()
 	}
 	for _, p := range lq.predicates {
@@ -509,12 +513,12 @@ func (lq *LikeQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	for _, p := range lq.order {
 		p(selector)
 	}
-	if offset := lq.offset; offset != nil {
+	if offset := lq.ctx.Offset; offset != nil {
 		// limit is mandatory for offset clause. We start
 		// with default value, and override it below if needed.
 		selector.Offset(*offset).Limit(math.MaxInt32)
 	}
-	if limit := lq.limit; limit != nil {
+	if limit := lq.ctx.Limit; limit != nil {
 		selector.Limit(*limit)
 	}
 	return selector
@@ -534,7 +538,7 @@ func (lgb *LikeGroupBy) Aggregate(fns ...AggregateFunc) *LikeGroupBy {
 
 // Scan applies the selector query and scans the result into the given value.
 func (lgb *LikeGroupBy) Scan(ctx context.Context, v any) error {
-	ctx = newQueryContext(ctx, TypeLike, "GroupBy")
+	ctx = setContextOp(ctx, lgb.build.ctx, "GroupBy")
 	if err := lgb.build.prepareQuery(ctx); err != nil {
 		return err
 	}
@@ -582,7 +586,7 @@ func (ls *LikeSelect) Aggregate(fns ...AggregateFunc) *LikeSelect {
 
 // Scan applies the selector query and scans the result into the given value.
 func (ls *LikeSelect) Scan(ctx context.Context, v any) error {
-	ctx = newQueryContext(ctx, TypeLike, "Select")
+	ctx = setContextOp(ctx, ls.ctx, "Select")
 	if err := ls.prepareQuery(ctx); err != nil {
 		return err
 	}

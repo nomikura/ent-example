@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 )
 
@@ -24,7 +25,8 @@ type Like struct {
 	TweetID int `json:"tweet_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the LikeQuery when eager-loading is set.
-	Edges LikeEdges `json:"edges"`
+	Edges        LikeEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // LikeEdges holds the relations/edges for other nodes in the graph.
@@ -76,7 +78,7 @@ func (*Like) scanValues(columns []string) ([]any, error) {
 		case like.FieldLikedAt:
 			values[i] = new(sql.NullTime)
 		default:
-			return nil, fmt.Errorf("unexpected column %q for type Like", columns[i])
+			values[i] = new(sql.UnknownType)
 		}
 	}
 	return values, nil
@@ -108,26 +110,34 @@ func (l *Like) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				l.TweetID = int(value.Int64)
 			}
+		default:
+			l.selectValues.Set(columns[i], values[i])
 		}
 	}
 	return nil
 }
 
+// Value returns the ent.Value that was dynamically selected and assigned to the Like.
+// This includes values selected through modifiers, order, etc.
+func (l *Like) Value(name string) (ent.Value, error) {
+	return l.selectValues.Get(name)
+}
+
 // QueryUser queries the "user" edge of the Like entity.
 func (l *Like) QueryUser() *UserQuery {
-	return (&LikeClient{config: l.config}).QueryUser(l)
+	return NewLikeClient(l.config).QueryUser(l)
 }
 
 // QueryTweet queries the "tweet" edge of the Like entity.
 func (l *Like) QueryTweet() *TweetQuery {
-	return (&LikeClient{config: l.config}).QueryTweet(l)
+	return NewLikeClient(l.config).QueryTweet(l)
 }
 
 // Update returns a builder for updating this Like.
 // Note that you need to call Like.Unwrap() before calling this method if this Like
 // was returned from a transaction, and the transaction was committed or rolled back.
 func (l *Like) Update() *LikeUpdateOne {
-	return (&LikeClient{config: l.config}).UpdateOne(l)
+	return NewLikeClient(l.config).UpdateOne(l)
 }
 
 // Unwrap unwraps the Like entity that was returned from a transaction after it was closed,
@@ -159,9 +169,3 @@ func (l *Like) String() string {
 
 // Likes is a parsable slice of Like.
 type Likes []*Like
-
-func (l Likes) config(cfg config) {
-	for _i := range l {
-		l[_i].config = cfg
-	}
-}

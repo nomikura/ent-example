@@ -26,7 +26,7 @@ func (ld *LikeDelete) Where(ps ...predicate.Like) *LikeDelete {
 
 // Exec executes the deletion query and returns how many vertices were deleted.
 func (ld *LikeDelete) Exec(ctx context.Context) (int, error) {
-	return withHooks[int, LikeMutation](ctx, ld.sqlExec, ld.mutation, ld.hooks)
+	return withHooks(ctx, ld.sqlExec, ld.mutation, ld.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
@@ -39,11 +39,7 @@ func (ld *LikeDelete) ExecX(ctx context.Context) int {
 }
 
 func (ld *LikeDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := &sqlgraph.DeleteSpec{
-		Node: &sqlgraph.NodeSpec{
-			Table: like.Table,
-		},
-	}
+	_spec := sqlgraph.NewDeleteSpec(like.Table, nil)
 	if ps := ld.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -64,6 +60,12 @@ type LikeDeleteOne struct {
 	ld *LikeDelete
 }
 
+// Where appends a list predicates to the LikeDelete builder.
+func (ldo *LikeDeleteOne) Where(ps ...predicate.Like) *LikeDeleteOne {
+	ldo.ld.mutation.Where(ps...)
+	return ldo
+}
+
 // Exec executes the deletion query.
 func (ldo *LikeDeleteOne) Exec(ctx context.Context) error {
 	n, err := ldo.ld.Exec(ctx)
@@ -79,5 +81,7 @@ func (ldo *LikeDeleteOne) Exec(ctx context.Context) error {
 
 // ExecX is like Exec, but panics if an error occurs.
 func (ldo *LikeDeleteOne) ExecX(ctx context.Context) {
-	ldo.ld.ExecX(ctx)
+	if err := ldo.Exec(ctx); err != nil {
+		panic(err)
+	}
 }

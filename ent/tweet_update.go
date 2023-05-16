@@ -77,7 +77,7 @@ func (tu *TweetUpdate) RemoveLikedUsers(u ...*User) *TweetUpdate {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (tu *TweetUpdate) Save(ctx context.Context) (int, error) {
-	return withHooks[int, TweetMutation](ctx, tu.sqlSave, tu.mutation, tu.hooks)
+	return withHooks(ctx, tu.sqlSave, tu.mutation, tu.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -103,16 +103,7 @@ func (tu *TweetUpdate) ExecX(ctx context.Context) {
 }
 
 func (tu *TweetUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	_spec := &sqlgraph.UpdateSpec{
-		Node: &sqlgraph.NodeSpec{
-			Table:   tweet.Table,
-			Columns: tweet.Columns,
-			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
-				Column: tweet.FieldID,
-			},
-		},
-	}
+	_spec := sqlgraph.NewUpdateSpec(tweet.Table, tweet.Columns, sqlgraph.NewFieldSpec(tweet.FieldID, field.TypeInt))
 	if ps := tu.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -131,10 +122,7 @@ func (tu *TweetUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		createE := &LikeCreate{config: tu.config, mutation: newLikeMutation(tu.config, OpCreate)}
@@ -151,10 +139,7 @@ func (tu *TweetUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -174,10 +159,7 @@ func (tu *TweetUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -256,6 +238,12 @@ func (tuo *TweetUpdateOne) RemoveLikedUsers(u ...*User) *TweetUpdateOne {
 	return tuo.RemoveLikedUserIDs(ids...)
 }
 
+// Where appends a list predicates to the TweetUpdate builder.
+func (tuo *TweetUpdateOne) Where(ps ...predicate.Tweet) *TweetUpdateOne {
+	tuo.mutation.Where(ps...)
+	return tuo
+}
+
 // Select allows selecting one or more fields (columns) of the returned entity.
 // The default is selecting all fields defined in the entity schema.
 func (tuo *TweetUpdateOne) Select(field string, fields ...string) *TweetUpdateOne {
@@ -265,7 +253,7 @@ func (tuo *TweetUpdateOne) Select(field string, fields ...string) *TweetUpdateOn
 
 // Save executes the query and returns the updated Tweet entity.
 func (tuo *TweetUpdateOne) Save(ctx context.Context) (*Tweet, error) {
-	return withHooks[*Tweet, TweetMutation](ctx, tuo.sqlSave, tuo.mutation, tuo.hooks)
+	return withHooks(ctx, tuo.sqlSave, tuo.mutation, tuo.hooks)
 }
 
 // SaveX is like Save, but panics if an error occurs.
@@ -291,16 +279,7 @@ func (tuo *TweetUpdateOne) ExecX(ctx context.Context) {
 }
 
 func (tuo *TweetUpdateOne) sqlSave(ctx context.Context) (_node *Tweet, err error) {
-	_spec := &sqlgraph.UpdateSpec{
-		Node: &sqlgraph.NodeSpec{
-			Table:   tweet.Table,
-			Columns: tweet.Columns,
-			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
-				Column: tweet.FieldID,
-			},
-		},
-	}
+	_spec := sqlgraph.NewUpdateSpec(tweet.Table, tweet.Columns, sqlgraph.NewFieldSpec(tweet.FieldID, field.TypeInt))
 	id, ok := tuo.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Tweet.id" for update`)}
@@ -336,10 +315,7 @@ func (tuo *TweetUpdateOne) sqlSave(ctx context.Context) (_node *Tweet, err error
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		createE := &LikeCreate{config: tuo.config, mutation: newLikeMutation(tuo.config, OpCreate)}
@@ -356,10 +332,7 @@ func (tuo *TweetUpdateOne) sqlSave(ctx context.Context) (_node *Tweet, err error
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -379,10 +352,7 @@ func (tuo *TweetUpdateOne) sqlSave(ctx context.Context) (_node *Tweet, err error
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 )
 
@@ -19,7 +20,8 @@ type Tweet struct {
 	Text string `json:"text,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TweetQuery when eager-loading is set.
-	Edges TweetEdges `json:"edges"`
+	Edges        TweetEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // TweetEdges holds the relations/edges for other nodes in the graph.
@@ -66,7 +68,7 @@ func (*Tweet) scanValues(columns []string) ([]any, error) {
 		case tweet.FieldText:
 			values[i] = new(sql.NullString)
 		default:
-			return nil, fmt.Errorf("unexpected column %q for type Tweet", columns[i])
+			values[i] = new(sql.UnknownType)
 		}
 	}
 	return values, nil
@@ -92,26 +94,34 @@ func (t *Tweet) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				t.Text = value.String
 			}
+		default:
+			t.selectValues.Set(columns[i], values[i])
 		}
 	}
 	return nil
 }
 
+// Value returns the ent.Value that was dynamically selected and assigned to the Tweet.
+// This includes values selected through modifiers, order, etc.
+func (t *Tweet) Value(name string) (ent.Value, error) {
+	return t.selectValues.Get(name)
+}
+
 // QueryLikedUsers queries the "liked_users" edge of the Tweet entity.
 func (t *Tweet) QueryLikedUsers() *UserQuery {
-	return (&TweetClient{config: t.config}).QueryLikedUsers(t)
+	return NewTweetClient(t.config).QueryLikedUsers(t)
 }
 
 // QueryLikes queries the "likes" edge of the Tweet entity.
 func (t *Tweet) QueryLikes() *LikeQuery {
-	return (&TweetClient{config: t.config}).QueryLikes(t)
+	return NewTweetClient(t.config).QueryLikes(t)
 }
 
 // Update returns a builder for updating this Tweet.
 // Note that you need to call Tweet.Unwrap() before calling this method if this Tweet
 // was returned from a transaction, and the transaction was committed or rolled back.
 func (t *Tweet) Update() *TweetUpdateOne {
-	return (&TweetClient{config: t.config}).UpdateOne(t)
+	return NewTweetClient(t.config).UpdateOne(t)
 }
 
 // Unwrap unwraps the Tweet entity that was returned from a transaction after it was closed,
@@ -186,9 +196,3 @@ func (t *Tweet) appendNamedLikes(name string, edges ...*Like) {
 
 // Tweets is a parsable slice of Tweet.
 type Tweets []*Tweet
-
-func (t Tweets) config(cfg config) {
-	for _i := range t {
-		t[_i].config = cfg
-	}
-}

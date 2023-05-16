@@ -48,7 +48,7 @@ func (tc *TweetCreate) Mutation() *TweetMutation {
 
 // Save creates the Tweet in the database.
 func (tc *TweetCreate) Save(ctx context.Context) (*Tweet, error) {
-	return withHooks[*Tweet, TweetMutation](ctx, tc.sqlSave, tc.mutation, tc.hooks)
+	return withHooks(ctx, tc.sqlSave, tc.mutation, tc.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
@@ -102,13 +102,7 @@ func (tc *TweetCreate) sqlSave(ctx context.Context) (*Tweet, error) {
 func (tc *TweetCreate) createSpec() (*Tweet, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Tweet{config: tc.config}
-		_spec = &sqlgraph.CreateSpec{
-			Table: tweet.Table,
-			ID: &sqlgraph.FieldSpec{
-				Type:   field.TypeInt,
-				Column: tweet.FieldID,
-			},
-		}
+		_spec = sqlgraph.NewCreateSpec(tweet.Table, sqlgraph.NewFieldSpec(tweet.FieldID, field.TypeInt))
 	)
 	if value, ok := tc.mutation.Text(); ok {
 		_spec.SetField(tweet.FieldText, field.TypeString, value)
@@ -122,10 +116,7 @@ func (tc *TweetCreate) createSpec() (*Tweet, *sqlgraph.CreateSpec) {
 			Columns: tweet.LikedUsersPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -163,8 +154,8 @@ func (tcb *TweetCreateBulk) Save(ctx context.Context) ([]*Tweet, error) {
 					return nil, err
 				}
 				builder.mutation = mutation
-				nodes[i], specs[i] = builder.createSpec()
 				var err error
+				nodes[i], specs[i] = builder.createSpec()
 				if i < len(mutators)-1 {
 					_, err = mutators[i+1].Mutate(root, tcb.builders[i+1].mutation)
 				} else {

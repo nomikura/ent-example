@@ -66,7 +66,7 @@ func (lc *LikeCreate) Mutation() *LikeMutation {
 // Save creates the Like in the database.
 func (lc *LikeCreate) Save(ctx context.Context) (*Like, error) {
 	lc.defaults()
-	return withHooks[*Like, LikeMutation](ctx, lc.sqlSave, lc.mutation, lc.hooks)
+	return withHooks(ctx, lc.sqlSave, lc.mutation, lc.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
@@ -136,9 +136,7 @@ func (lc *LikeCreate) sqlSave(ctx context.Context) (*Like, error) {
 func (lc *LikeCreate) createSpec() (*Like, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Like{config: lc.config}
-		_spec = &sqlgraph.CreateSpec{
-			Table: like.Table,
-		}
+		_spec = sqlgraph.NewCreateSpec(like.Table, nil)
 	)
 	if value, ok := lc.mutation.LikedAt(); ok {
 		_spec.SetField(like.FieldLikedAt, field.TypeTime, value)
@@ -152,10 +150,7 @@ func (lc *LikeCreate) createSpec() (*Like, *sqlgraph.CreateSpec) {
 			Columns: []string{like.UserColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: user.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -172,10 +167,7 @@ func (lc *LikeCreate) createSpec() (*Like, *sqlgraph.CreateSpec) {
 			Columns: []string{like.TweetColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: &sqlgraph.FieldSpec{
-					Type:   field.TypeInt,
-					Column: tweet.FieldID,
-				},
+				IDSpec: sqlgraph.NewFieldSpec(tweet.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -211,8 +203,8 @@ func (lcb *LikeCreateBulk) Save(ctx context.Context) ([]*Like, error) {
 					return nil, err
 				}
 				builder.mutation = mutation
-				nodes[i], specs[i] = builder.createSpec()
 				var err error
+				nodes[i], specs[i] = builder.createSpec()
 				if i < len(mutators)-1 {
 					_, err = mutators[i+1].Mutate(root, lcb.builders[i+1].mutation)
 				} else {
