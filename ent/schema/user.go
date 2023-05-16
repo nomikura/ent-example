@@ -24,7 +24,8 @@ func (User) Fields() []ent.Field {
 func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("liked_tweets", Tweet.Type).
-			Through("likes", Like.Type),
+			Through("likes", Like.Type).
+			Annotations(entgql.RelayConnection()),
 	}
 }
 

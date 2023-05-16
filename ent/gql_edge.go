@@ -20,14 +20,20 @@ func (t *Tweet) LikedUsers(ctx context.Context) (result []*User, err error) {
 	return result, err
 }
 
-func (u *User) LikedTweets(ctx context.Context) (result []*Tweet, err error) {
-	if fc := graphql.GetFieldContext(ctx); fc != nil && fc.Field.Alias != "" {
-		result, err = u.NamedLikedTweets(graphql.GetFieldContext(ctx).Field.Alias)
-	} else {
-		result, err = u.Edges.LikedTweetsOrErr()
+func (u *User) LikedTweets(
+	ctx context.Context, after *Cursor, first *int, before *Cursor, last *int,
+) (*TweetConnection, error) {
+	opts := []TweetPaginateOption{}
+	alias := graphql.GetFieldContext(ctx).Field.Alias
+	totalCount, hasTotalCount := u.Edges.totalCount[0][alias]
+	if nodes, err := u.NamedLikedTweets(alias); err == nil || hasTotalCount {
+		pager, err := newTweetPager(opts, last != nil)
+		if err != nil {
+			return nil, err
+		}
+		conn := &TweetConnection{Edges: []*TweetEdge{}, TotalCount: totalCount}
+		conn.build(nodes, pager, after, first, before, last)
+		return conn, nil
 	}
-	if IsNotLoaded(err) {
-		result, err = u.QueryLikedTweets().All(ctx)
-	}
-	return result, err
+	return u.QueryLikedTweets().Paginate(ctx, after, first, before, last, opts...)
 }

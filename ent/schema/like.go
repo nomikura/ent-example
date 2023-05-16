@@ -3,6 +3,7 @@ package schema
 import (
 	"time"
 
+	"entgo.io/contrib/entgql"
 	"entgo.io/ent"
 	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/edge"
@@ -39,5 +40,11 @@ func (Like) Edges() []ent.Edge {
 			Unique().
 			Required().
 			Field("tweet_id"),
+	}
+}
+
+func (Like) Annotation() []schema.Annotation {
+	return []schema.Annotation{
+		entgql.RelayConnection(),
 	}
 }
